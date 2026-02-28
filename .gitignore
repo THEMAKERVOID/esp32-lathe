@@ -1,0 +1,13 @@
+# MCP configuration (contains API tokens - never commit)
+.mcp.json
+
+# Design assets (source PNGs, Figma exports, .fig files — not needed in repo)
+esp32-lathe/assets/
+
+# Wokwi project token (local simulation config)
+wokwi-project.txt
+
+# Internal docs (AI instructions, scripts, UI planning — not for public repo)
+CLAUDE.md
+GUION_VIDEO_YOUTUBE.md
+UI_SCREENS.md
