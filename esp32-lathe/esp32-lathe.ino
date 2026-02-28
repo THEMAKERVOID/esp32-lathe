@@ -2,23 +2,23 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
 #include <rom/ets_sys.h>   // ets_delay_us() — delay sin deshabilitar interrupciones (Core1)
-// #include <XPT2046_Touchscreen.h>  // Disabled: Wokwi does not support XPT2046
+// #include <XPT2046_Touchscreen.h>  // TODO: re-enable for real hardware (uncomment + uncomment handleTouch())
 #include <EEPROM.h>
 #include <math.h>
-#include "logo_splash.h"
-#include "bg_main.h"
-#include "btn_menu.h"
-#include "btn_back.h"
-#include "btn_ok.h"
-#include "btn_reload.h"
-#include "btn_stepper.h"
-#include "solid.h"
-#include "btn_slider.h"
-#include "Orbitron_Medium8pt7b.h"
-#include "Orbitron_Medium12pt7b.h"
-#include "Orbitron_Medium18pt7b.h"
-#include "Orbitron_Medium24pt7b.h"
-#include "Montserrat_Light6pt7b.h"
+#include "bitmaps/logo_splash.h"
+#include "bitmaps/bg_main.h"
+#include "bitmaps/btn_menu.h"
+#include "bitmaps/btn_back.h"
+#include "bitmaps/btn_ok.h"
+#include "bitmaps/btn_reload.h"
+#include "bitmaps/btn_stepper.h"
+#include "bitmaps/solid.h"
+#include "bitmaps/btn_slider.h"
+#include "Fonts/Orbitron_Medium8pt7b.h"
+#include "Fonts/Orbitron_Medium12pt7b.h"
+#include "Fonts/Orbitron_Medium18pt7b.h"
+#include "Fonts/Orbitron_Medium24pt7b.h"
+#include "Fonts/Montserrat_Light6pt7b.h"
 
 #define TFT_CS 10
 #define TFT_DC 11
