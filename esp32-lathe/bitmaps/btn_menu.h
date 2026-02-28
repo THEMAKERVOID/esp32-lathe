@@ -1,5 +1,3 @@
-#pragma once
-#include <pgmspace.h>
 // Button-Menu icon: 24x24 pixels, RGB565 PROGMEM
 // Figma: instance (279,16) 24x24 � Off and On states
 // Composited against C_BG #1F1F21

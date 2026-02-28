@@ -1,9 +1,6 @@
 // Logo ILS splash screen: 92x141 pixels, RGB565 PROGMEM
 // Figma: frame "ili9341 - Carga", node 1:22, position x=114 y=49
 // Composited against C_BG #1F1F21
-#pragma once
-#include <pgmspace.h>
-
 constexpr int LOGO_W = 92;
 constexpr int LOGO_H = 141;
 constexpr int LOGO_X = 114;
