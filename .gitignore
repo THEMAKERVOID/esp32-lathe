@@ -1,5 +1,9 @@
-# MCP configuration (contains API tokens - never commit)
+# MCP configuration and Claude Code settings (contain API tokens - never commit)
 .mcp.json
+.claude/
+
+# IDE configuration (machine-specific)
+.vscode/
 
 # Design assets (source PNGs, Figma exports, .fig files — not needed in repo)
 esp32-lathe/assets/
