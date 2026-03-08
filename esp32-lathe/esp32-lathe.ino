@@ -59,9 +59,21 @@ constexpr uint16_t DEBOUNCE_DELAY = 200;
 
 const float avances[] = {0.07f, 0.10f, 0.13f, 0.18f, 0.25f};
 const int NUM_AV = 5;
-const float roscas[] = {0.40f, 0.50f, 0.70f, 0.80f, 1.00f, 1.25f, 1.50f, 1.75f, 2.00f, 2.50f, 3.00f, 3.50f, 4.00f};
-const int NUM_ROS = 13;
-constexpr int ROSCA_P1 = 6;
+// Metric thread pitches (mm)
+const float roscas[] = {0.20f, 0.30f, 0.40f, 0.50f, 0.60f, 0.70f, 0.80f, 1.00f,
+                         1.25f, 1.50f, 1.75f, 2.00f, 2.50f, 3.00f, 3.50f, 4.00f};
+const int NUM_ROS = 16;
+
+// Imperial thread pitches — TPI values and their mm equivalents
+const float tpi_vals[]        = {8, 9, 9.5f, 10, 11, 12, 14, 16, 18, 19,
+                                  20, 22, 24, 28, 32, 36, 38, 40, 44, 48, 56};
+const float roscas_imperial[] = {25.4f/8,  25.4f/9,  25.4f/9.5f, 25.4f/10, 25.4f/11,
+                                  25.4f/12, 25.4f/14, 25.4f/16,   25.4f/18, 25.4f/19,
+                                  25.4f/20, 25.4f/22, 25.4f/24,   25.4f/28, 25.4f/32,
+                                  25.4f/36, 25.4f/38, 25.4f/40,   25.4f/44, 25.4f/48,
+                                  25.4f/56};
+const int NUM_ROS_IMP = 21;
+constexpr int ROSCA_PAGE_SIZE = 6;  // items per page (2×3 grid)
 
 // UI color palette (Figma Dark Mode)
 constexpr uint16_t C_BG     = 0x18E4;  // #1F1F21 background (canvas)
@@ -90,7 +102,7 @@ constexpr int CONF_Y = 190;
 enum class AppState : uint8_t {
   SPLASH,
   MAIN_MENU, AVANCE_MODE, AVANCE_SELECT, ROSCADO_MODE,
-  ROSCA_SELECT_P1, ROSCA_SELECT_P2, DIVISOR_MODE,
+  ROSCA_SELECT, THREAD_UNIT_SWITCH, DIVISOR_MODE,
   CONFIG_MENU, CONFIG_DIRECTION, CONFIG_RATIO,
   MENU_OVERLAY, INFO_SCREEN, INTERFACE_SCREEN
 };
@@ -501,85 +513,72 @@ public:
     tft.drawRGBBitmap(262, 182, btn_ok_off, BTN_OK_W, BTN_OK_H);
   }
   
-  void drawRoscaPage1(int sel){
+  void drawThreadUnitSwitch(int sel){
+    // sel: 0=METRIC, 1=IMPERIAL
     tft.fillScreen(C_BG);
-
-    // Header: "< THREAD SELECTION" — Orbitron 8pt, white, top-left
     tft.setFont(&Orbitron_Medium8pt7b);
     tft.setTextColor(C_WHITE);
     tft.setCursor(28, 33);
-    tft.print("< THREAD SELECTION");
+    tft.print("< THREADS UNIT SWITCH");
     tft.setFont(nullptr);
-
-    // Button-Menu icon — top-right
     tft.drawRGBBitmap(BTN_MENU_X, BTN_MENU_Y, btn_menu_off, BTN_MENU_W, BTN_MENU_H);
 
-    // Thread pitch grid page 1 — 2×3 (ROSCA_P1=6 items, all slots filled)
+    const char* labels[] = {"METRIC", "IMPERIAL"};
+    const int OPT_Y[]    = {72, 117};
+    tft.setFont(&Orbitron_Medium8pt7b);
+    for(int i = 0; i < 2; i++){
+      uint16_t bg = (sel == i) ? C_ACCENT : C_BTN;
+      uint16_t fg = (sel == i) ? C_WHITE  : C_MUTED;
+      tft.fillRoundRect(28, OPT_Y[i], 264, 30, 4, bg);
+      tft.setTextColor(fg);
+      int16_t x1, y1; uint16_t tw, th;
+      tft.getTextBounds(labels[i], 0, 0, &x1, &y1, &tw, &th);
+      tft.setCursor(28 + (264 - (int)tw) / 2 - x1, OPT_Y[i] + (30 + (int)th) / 2);
+      tft.print(labels[i]);
+    }
+    tft.setFont(nullptr);
+    tft.drawRGBBitmap(222, 182, btn_back_off, BTN_BACK_W, BTN_BACK_H);
+    tft.drawRGBBitmap(262, 182, btn_ok_off,   BTN_OK_W,   BTN_OK_H);
+  }
+
+  // Generic thread selection page — handles any number of items and pages
+  // page: 0-indexed page number | sel: absolute index in array | imperial: unit mode
+  void drawRoscaPage(int page, int sel, bool imperial){
+    tft.fillScreen(C_BG);
+    tft.setFont(&Orbitron_Medium8pt7b);
+    tft.setTextColor(C_WHITE);
+    tft.setCursor(28, 33);
+    tft.print(imperial ? "< THREAD SELECTION (tpi)" : "< THREAD SELECTION (mm)");
+    tft.setFont(nullptr);
+    tft.drawRGBBitmap(BTN_MENU_X, BTN_MENU_Y, btn_menu_off, BTN_MENU_W, BTN_MENU_H);
+
+    const int tot         = imperial ? NUM_ROS_IMP : NUM_ROS;
+    const int total_pages = (tot + ROSCA_PAGE_SIZE - 1) / ROSCA_PAGE_SIZE;
+    const int start       = page * ROSCA_PAGE_SIZE;
+    const int count       = min(ROSCA_PAGE_SIZE, tot - start);
+
+    // Grid: 2×4 layout (8 items per page)
     const int COLS = 2;
     const int TAB_W = 110, TAB_H = 20, TAB_GAP_X = 20, TAB_GAP_Y = 15;
     const int GRID_X = 40, GRID_Y = 65;
 
     tft.setFont(&Orbitron_Medium8pt7b);
-    for(int i = 0; i < ROSCA_P1; i++){
-      int col = i % COLS, row = i / COLS;
-      int x = GRID_X + col * (TAB_W + TAB_GAP_X);
-      int y = GRID_Y + row * (TAB_H + TAB_GAP_Y);
-      bool isSel = (i == sel);
-      tft.fillRect(x, y, TAB_W, TAB_H, isSel ? C_ACCENT : C_BTN);
-      tft.setTextColor(isSel ? C_WHITE : C_MUTED);
-      char buf[8]; snprintf(buf, sizeof(buf), "%.2f", roscas[i]);
-      int16_t x1, y1; uint16_t tw, th;
-      tft.getTextBounds(buf, 0, 0, &x1, &y1, &tw, &th);
-      tft.setCursor(x + (TAB_W - (int)tw) / 2 - x1, y + (TAB_H - (int)th) / 2 - y1);
-      tft.print(buf);
-    }
-    tft.setFont(nullptr);
-
-    // Pagination "1 / 2" — left caret OFF (no prev), right caret ON (next available)
-    tft.drawRGBBitmap(17, 182, solid_left_off, SOLID_W, SOLID_H);
-    tft.setFont(&Orbitron_Medium8pt7b);
-    tft.setTextColor(C_WHITE);
-    tft.setCursor(44, 199);
-    tft.print("1 / 2");
-    int afterPag = tft.getCursorX();
-    tft.setFont(nullptr);
-    tft.drawRGBBitmap(afterPag + 4, 182, solid_on, SOLID_W, SOLID_H);
-
-    // Button-Back and Button-Ok — bottom-right
-    tft.drawRGBBitmap(222, 182, btn_back_off, BTN_BACK_W, BTN_BACK_H);
-    tft.drawRGBBitmap(262, 182, btn_ok_off, BTN_OK_W, BTN_OK_H);
-  }
-
-  void drawRoscaPage2(int sel){
-    tft.fillScreen(C_BG);
-
-    // Header: "< THREAD SELECTION" — Orbitron 8pt, white, top-left
-    tft.setFont(&Orbitron_Medium8pt7b);
-    tft.setTextColor(C_WHITE);
-    tft.setCursor(28, 33);
-    tft.print("< THREAD SELECTION");
-    tft.setFont(nullptr);
-
-    // Button-Menu icon — top-right
-    tft.drawRGBBitmap(BTN_MENU_X, BTN_MENU_Y, btn_menu_off, BTN_MENU_W, BTN_MENU_H);
-
-    // Thread pitch grid page 2 — 2×4 (7 items: indices ROSCA_P1..NUM_ROS-1, last slot empty)
-    // Slightly tighter gap to fit 4 rows above the button bar
-    const int COLS = 2;
-    const int TAB_W = 110, TAB_H = 20, TAB_GAP_X = 20, TAB_GAP_Y = 12;
-    const int GRID_X = 40, GRID_Y = 55;
-    const int count = NUM_ROS - ROSCA_P1;  // 7
-
-    tft.setFont(&Orbitron_Medium8pt7b);
     for(int i = 0; i < count; i++){
-      int idx = ROSCA_P1 + i;
+      int idx = start + i;
       int col = i % COLS, row = i / COLS;
       int x = GRID_X + col * (TAB_W + TAB_GAP_X);
       int y = GRID_Y + row * (TAB_H + TAB_GAP_Y);
       bool isSel = (idx == sel);
       tft.fillRect(x, y, TAB_W, TAB_H, isSel ? C_ACCENT : C_BTN);
       tft.setTextColor(isSel ? C_WHITE : C_MUTED);
-      char buf[8]; snprintf(buf, sizeof(buf), "%.2f", roscas[idx]);
+      char buf[12];
+      if(imperial){
+        float t = tpi_vals[idx];
+        if(t == (float)(int)t) snprintf(buf, sizeof(buf), "%d", (int)t);
+        else                   snprintf(buf, sizeof(buf), "%.1f", t);
+      } else {
+        snprintf(buf, sizeof(buf), "%.2f", roscas[idx]);
+      }
       int16_t x1, y1; uint16_t tw, th;
       tft.getTextBounds(buf, 0, 0, &x1, &y1, &tw, &th);
       tft.setCursor(x + (TAB_W - (int)tw) / 2 - x1, y + (TAB_H - (int)th) / 2 - y1);
@@ -587,19 +586,21 @@ public:
     }
     tft.setFont(nullptr);
 
-    // Pagination "2 / 2" — left caret ON (prev available), right caret OFF (no next)
-    tft.drawRGBBitmap(17, 182, solid_left_on, SOLID_W, SOLID_H);
+    // Pagination — carets reflect available prev/next pages
+    bool hasLeft  = (page > 0);
+    bool hasRight = (page < total_pages - 1);
+    tft.drawRGBBitmap(17, 182, hasLeft ? solid_left_on : solid_left_off, SOLID_W, SOLID_H);
     tft.setFont(&Orbitron_Medium8pt7b);
     tft.setTextColor(C_WHITE);
     tft.setCursor(44, 199);
-    tft.print("2 / 2");
+    char pag[8]; snprintf(pag, sizeof(pag), "%d / %d", page + 1, total_pages);
+    tft.print(pag);
     int afterPag = tft.getCursorX();
     tft.setFont(nullptr);
-    tft.drawRGBBitmap(afterPag + 4, 182, solid_off, SOLID_W, SOLID_H);
+    tft.drawRGBBitmap(afterPag + 4, 182, hasRight ? solid_on : solid_off, SOLID_W, SOLID_H);
 
-    // Button-Back and Button-Ok — bottom-right
     tft.drawRGBBitmap(222, 182, btn_back_off, BTN_BACK_W, BTN_BACK_H);
-    tft.drawRGBBitmap(262, 182, btn_ok_off, BTN_OK_W, BTN_OK_H);
+    tft.drawRGBBitmap(262, 182, btn_ok_off,   BTN_OK_W,   BTN_OK_H);
   }
   
   void modeScreen(const char* title, float value, const char* unit){
@@ -842,12 +843,13 @@ public:
 };
 
 // ===== Variables compartidas Core0 ↔ Core1 =====
-volatile AppState g_servoState  = AppState::SPLASH;
-volatile int      g_avanceSel   = 0;
-volatile int      g_roscaSel    = 0;
-volatile uint8_t  g_leadPitch   = 3;
-volatile bool     g_cwDirection = true;
-volatile bool     g_servoActive = false;
+volatile AppState g_servoState    = AppState::SPLASH;
+volatile int      g_avanceSel     = 0;
+volatile int      g_roscaSel      = 0;
+volatile uint8_t  g_leadPitch     = 3;
+volatile bool     g_cwDirection   = true;
+volatile bool     g_servoActive   = false;
+volatile bool     g_imperialThread = false;
 
 // ===== Control servo Core1 — variables privadas =====
 static int32_t servoLastE_c1       = 0;
@@ -874,7 +876,8 @@ void IRAM_ATTR updateServoCore1() {
   if (diff == 0) return;
   servoLastE_c1 = cur;
 
-  float F = (st == AppState::AVANCE_MODE) ? avances[avSel] : roscas[roSel];
+  float F = (st == AppState::AVANCE_MODE) ? avances[avSel]
+            : (g_imperialThread ? roscas_imperial[roSel] : roscas[roSel]);
   int32_t num = (int32_t)(F * 100.0f + 0.5f);
   int32_t den = (int32_t)pitch * 100;
   if (den == 0) return;
@@ -907,7 +910,7 @@ private:
   Button bUp, bDown, bSel, bBack;
   AppState state;
   AppState prevState;
-  int menuSel, configMenuSel, ratioDigitSel, avanceSel, roscaSel;
+  int menuSel, configMenuSel, ratioDigitSel, avanceSel, roscaSel, roscaPage, threadUnitSel;
   int menuOverlaySel;
   float ang, lastAng;
   uint32_t tRPM, tANG, splashStart;
@@ -920,7 +923,7 @@ public:
     bUp(BTN_UP), bDown(BTN_DOWN), bSel(BTN_SELECT), bBack(BTN_BACK),
     state(AppState::SPLASH), prevState(AppState::MAIN_MENU),
     menuSel(0), configMenuSel(0), ratioDigitSel(0),
-    avanceSel(0), roscaSel(0), menuOverlaySel(0),
+    avanceSel(0), roscaSel(0), roscaPage(0), threadUnitSel(0), menuOverlaySel(0),
     ang(0.0f), lastAng(-1000.0f),
     tRPM(0), tANG(0), splashStart(0), lastRPM(0) {}
 
@@ -1035,8 +1038,10 @@ private:
           disp.drawAvanceSelect(avanceSel);
         }
         else if(menuSel == 1){
-          state = AppState::ROSCA_SELECT_P1;
-          disp.drawRoscaPage1(roscaSel);
+          roscaSel = 0;
+          threadUnitSel = 0;
+          state = AppState::THREAD_UNIT_SWITCH;
+          disp.drawThreadUnitSwitch(threadUnitSel);
         }
         else if(menuSel == 2){
           state = AppState::DIVISOR_MODE;
@@ -1048,6 +1053,18 @@ private:
         menuOverlaySel = 0;
         state = AppState::MENU_OVERLAY;
         disp.drawMenuOverlay(menuOverlaySel);
+      }
+    }
+    else if(state==AppState::THREAD_UNIT_SWITCH){
+      if(bUp.read()==ButtonEvent::PRESSED || bDown.read()==ButtonEvent::PRESSED){
+        threadUnitSel = 1 - threadUnitSel;
+        disp.drawThreadUnitSwitch(threadUnitSel);
+      }
+      if(bSel.read()==ButtonEvent::PRESSED){
+        roscaSel = 0;
+        roscaPage = 0;
+        state = AppState::ROSCA_SELECT;
+        disp.drawRoscaPage(roscaPage, roscaSel, threadUnitSel == 1);
       }
     }
     else if(state==AppState::MENU_OVERLAY){
@@ -1160,67 +1177,48 @@ private:
         disp.modeScreen("< FEED MODE", avances[avanceSel], "mm");
       }
     }
-    else if(state==AppState::ROSCA_SELECT_P1){
+    else if(state==AppState::ROSCA_SELECT){
+      bool imp     = (threadUnitSel == 1);
+      int  tot     = imp ? NUM_ROS_IMP : NUM_ROS;
+      int  pages   = (tot + ROSCA_PAGE_SIZE - 1) / ROSCA_PAGE_SIZE;
+      int  pStart  = roscaPage * ROSCA_PAGE_SIZE;
+      int  pEnd    = min(pStart + ROSCA_PAGE_SIZE, tot) - 1;
       if(bUp.read()==ButtonEvent::PRESSED){
-        roscaSel--;
-        if(roscaSel < 0){
-          roscaSel = NUM_ROS - 1;
-          state = AppState::ROSCA_SELECT_P2;
-          disp.drawRoscaPage2(roscaSel);
+        if(roscaSel > pStart){
+          roscaSel--;
+        } else if(roscaPage > 0){
+          roscaPage--;
+          roscaSel = min((roscaPage + 1) * ROSCA_PAGE_SIZE, tot) - 1;
         } else {
-          disp.drawRoscaPage1(roscaSel);
+          roscaPage = pages - 1;
+          roscaSel  = tot - 1;
         }
+        disp.drawRoscaPage(roscaPage, roscaSel, imp);
       }
       if(bDown.read()==ButtonEvent::PRESSED){
-        roscaSel++;
-        if(roscaSel >= ROSCA_P1){
-          state = AppState::ROSCA_SELECT_P2;
-          disp.drawRoscaPage2(roscaSel);
+        if(roscaSel < pEnd){
+          roscaSel++;
+        } else if(roscaPage < pages - 1){
+          roscaPage++;
+          roscaSel = roscaPage * ROSCA_PAGE_SIZE;
         } else {
-          disp.drawRoscaPage1(roscaSel);
+          roscaPage = 0;
+          roscaSel  = 0;
         }
+        disp.drawRoscaPage(roscaPage, roscaSel, imp);
       }
       if(bSel.read()==ButtonEvent::PRESSED){
-        state = AppState::ROSCADO_MODE;
-        g_servoState  = AppState::ROSCADO_MODE;
-        g_avanceSel   = avanceSel;
-        g_roscaSel    = roscaSel;
-        g_leadPitch   = config.leadScrewPitch;
-        g_cwDirection = config.cwDirection;
-        g_servoActive = true;
-        disp.modeScreen("< THREAD MODE", roscas[roscaSel], "Pitch");
-      }
-    }
-    else if(state==AppState::ROSCA_SELECT_P2){
-      if(bUp.read()==ButtonEvent::PRESSED){
-        roscaSel--;
-        if(roscaSel < ROSCA_P1){
-          roscaSel = ROSCA_P1 - 1;
-          state = AppState::ROSCA_SELECT_P1;
-          disp.drawRoscaPage1(roscaSel);
-        } else {
-          disp.drawRoscaPage2(roscaSel);
-        }
-      }
-      if(bDown.read()==ButtonEvent::PRESSED){
-        roscaSel++;
-        if(roscaSel >= NUM_ROS){
-          roscaSel = 0;
-          state = AppState::ROSCA_SELECT_P1;
-          disp.drawRoscaPage1(roscaSel);
-        } else {
-          disp.drawRoscaPage2(roscaSel);
-        }
-      }
-      if(bSel.read()==ButtonEvent::PRESSED){
-        state = AppState::ROSCADO_MODE;
-        g_servoState  = AppState::ROSCADO_MODE;
-        g_avanceSel   = avanceSel;
-        g_roscaSel    = roscaSel;
-        g_leadPitch   = config.leadScrewPitch;
-        g_cwDirection = config.cwDirection;
-        g_servoActive = true;
-        disp.modeScreen("< THREAD MODE", roscas[roscaSel], "Pitch");
+        float pitchVal = imp ? roscas_imperial[roscaSel] : roscas[roscaSel];
+        float dispVal  = imp ? tpi_vals[roscaSel]        : roscas[roscaSel];
+        state            = AppState::ROSCADO_MODE;
+        g_servoState     = AppState::ROSCADO_MODE;
+        g_avanceSel      = avanceSel;
+        g_roscaSel       = roscaSel;
+        g_leadPitch      = config.leadScrewPitch;
+        g_cwDirection    = config.cwDirection;
+        g_imperialThread = imp;
+        g_servoActive    = true;
+        disp.modeScreen("< THREAD MODE", dispVal, imp ? "TPI" : "Pitch");
       }
     }
     else if(state==AppState::DIVISOR_MODE){
@@ -1241,10 +1239,16 @@ private:
        state!=AppState::SPLASH &&
        state!=AppState::MAIN_MENU &&
        state!=AppState::MENU_OVERLAY){
-      if(state==AppState::ROSCA_SELECT_P2){
-        state = AppState::ROSCA_SELECT_P1;
-        if(roscaSel >= ROSCA_P1) roscaSel = 0;
-        disp.drawRoscaPage1(roscaSel);
+      if(state==AppState::ROSCA_SELECT){
+        bool imp = (threadUnitSel == 1);
+        if(roscaPage > 0){
+          roscaPage--;
+          roscaSel = roscaPage * ROSCA_PAGE_SIZE;
+          disp.drawRoscaPage(roscaPage, roscaSel, imp);
+        } else {
+          state = AppState::THREAD_UNIT_SWITCH;
+          disp.drawThreadUnitSwitch(threadUnitSel);
+        }
       }
       else if(state==AppState::CONFIG_DIRECTION || state==AppState::CONFIG_RATIO){
         state = AppState::CONFIG_MENU;
