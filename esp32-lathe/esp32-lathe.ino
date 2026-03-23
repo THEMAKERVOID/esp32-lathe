@@ -514,7 +514,7 @@ public:
   }
   
   void drawThreadUnitSwitch(int sel){
-    // sel: 0=METRIC, 1=IMPERIAL
+    // sel: 0=METRIC, 1=UTS
     tft.fillScreen(C_BG);
     tft.setFont(&Orbitron_Medium8pt7b);
     tft.setTextColor(C_WHITE);
@@ -523,7 +523,7 @@ public:
     tft.setFont(nullptr);
     tft.drawRGBBitmap(BTN_MENU_X, BTN_MENU_Y, btn_menu_off, BTN_MENU_W, BTN_MENU_H);
 
-    const char* labels[] = {"METRIC", "IMPERIAL"};
+    const char* labels[] = {"METRIC", "UTS"};
     const int OPT_Y[]    = {72, 117};
     tft.setFont(&Orbitron_Medium8pt7b);
     for(int i = 0; i < 2; i++){
