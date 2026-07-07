@@ -15,3 +15,8 @@ wokwi-project.txt
 CLAUDE.md
 GUION_VIDEO_YOUTUBE.md
 UI_SCREENS.md
+
+# Word source documents for the manuals — only the exported PDFs are published
+esp32-lathe/Resources/*.doc
+esp32-lathe/Resources/*.docx
+esp32-lathe/Resources/Manual_Usuario_archivos/

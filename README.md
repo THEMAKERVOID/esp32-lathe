@@ -110,9 +110,9 @@ esp32-lathe/
 │   ├── Orbitron_Medium24pt7b.h
 │   └── Montserrat_Light6pt7b.h
 └── Resources/            # User manuals and component list (see Documentation)
-    ├── User_Manual.doc        # User manual (English)
-    ├── Manual_Usuario.doc     # User manual (Spanish)
-    └── ELS_Componentes.docx   # Bill of materials / component list
+    ├── User_Manual.pdf        # User manual (English)
+    ├── Manual_Usuario.pdf     # User manual (Spanish)
+    └── ELS_Componentes.pdf    # Bill of materials / component list
 ```
 
 ---
@@ -137,9 +137,9 @@ Full user manuals and the component list are available in the [`esp32-lathe/Reso
 
 | Document | Language | Description |
 |---|---|---|
-| [User_Manual.doc](esp32-lathe/Resources/User_Manual.doc) | English | Complete user manual — operation, modes, and configuration |
-| [Manual_Usuario.doc](esp32-lathe/Resources/Manual_Usuario.doc) | Español | Manual de usuario completo — funcionamiento, modos y configuración |
-| [ELS_Componentes.docx](esp32-lathe/Resources/ELS_Componentes.docx) | Español | Bill of materials / lista de componentes |
+| [User_Manual.pdf](esp32-lathe/Resources/User_Manual.pdf) | English | Complete user manual — operation, modes, and configuration |
+| [Manual_Usuario.pdf](esp32-lathe/Resources/Manual_Usuario.pdf) | Español | Manual de usuario completo — funcionamiento, modos y configuración |
+| [ELS_Componentes.pdf](esp32-lathe/Resources/ELS_Componentes.pdf) | Español | Bill of materials / lista de componentes |
 
 ---
 
