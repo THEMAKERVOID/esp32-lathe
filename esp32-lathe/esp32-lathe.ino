@@ -1,8 +1,8 @@
 #include <SPI.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
-#include <rom/ets_sys.h>   // ets_delay_us() — delay sin deshabilitar interrupciones (Core1)
-// #include <XPT2046_Touchscreen.h>  // TODO: re-enable for real hardware (uncomment + uncomment handleTouch())
+#include <rom/ets_sys.h>   // ets_delay_us() — delay without disabling interrupts (Core1)
+#include <XPT2046_Touchscreen.h>
 #include <EEPROM.h>
 #include <math.h>
 #include "bitmaps/logo_splash.h"
@@ -36,26 +36,27 @@
 #define ENC_B 21
 #define PUL_PIN 8
 #define DIR_PIN 9
-#define BRAKE_PIN 3  // GPIO para control del freno electromagnético
-#define ENC_Z 2      // GPIO para señal Z (índice) del encoder - reservado
+#define BRAKE_PIN 3  // GPIO for electromagnetic brake control
+#define ENC_Z 2      // GPIO for encoder Z (index) signal - reserved
 
-// XPT2046_Touchscreen touch(TOUCH_CS, TOUCH_IRQ);  // Disabled: Wokwi does not support XPT2046
+XPT2046_Touchscreen touch(TOUCH_CS, TOUCH_IRQ);
 
 #define EEPROM_MAGIC_ADDR 0
 #define EEPROM_DIRECTION_ADDR 1
 #define EEPROM_LEADSCREW_ADDR 2
 #define EEPROM_DARKMODE_ADDR 3
-#define EEPROM_MAGIC_VALUE 0xAC  // Incrementado para forzar re-init con darkMode
+#define EEPROM_MAGIC_VALUE 0xAC  // Bumped to force re-init after adding darkMode
 
 constexpr int QUAD = 1440;
 constexpr float LEAD = 3.0f;
 constexpr uint16_t UPDATE_RPM = 200;
 constexpr uint16_t UPDATE_ANGLE = 50;
 constexpr uint16_t DEBOUNCE_DELAY = 200;
-// constexpr int TS_MINX = 395;   // Touch calibration — disabled for Wokwi
-// constexpr int TS_MAXX = 3846;
-// constexpr int TS_MINY = 412;
-// constexpr int TS_MAXY = 3739;
+constexpr int TS_MINX = 395;   // Touch calibration — adjust for your panel
+constexpr int TS_MAXX = 3846;
+constexpr int TS_MINY = 412;
+constexpr int TS_MAXY = 3739;
+constexpr uint16_t TOUCH_DEBOUNCE = 250;  // ms between touch events
 
 const float avances[] = {0.07f, 0.10f, 0.13f, 0.18f, 0.25f};
 const int NUM_AV = 5;
@@ -85,19 +86,6 @@ constexpr uint16_t C_WHITE  = 0xFFFF;  // #FFFFFF text ON / borders
 
 constexpr uint32_t SPLASH_DURATION = 5000;  // ms
 
-constexpr int GRID_START_Y = 60;
-constexpr int BTN_H = 26;
-constexpr int BTN_GAP_Y = 6;
-constexpr int BTN_W = 130;
-constexpr int BTN_LEFT_X = 15;
-constexpr int BTN_RIGHT_X = 175;
-constexpr int ARROW_Y = 190;
-constexpr int ARROW_W = 50;
-constexpr int ARROW_H = 24;
-constexpr int CONF_W = 133;
-constexpr int CONF_H = 24;
-constexpr int CONF_X = (320 - CONF_W) / 2;
-constexpr int CONF_Y = 190;
 
 enum class AppState : uint8_t {
   SPLASH,
@@ -181,75 +169,6 @@ public:
     tft.begin();
     tft.setRotation(1);
     tft.fillScreen(C_BG);
-  }
-  
-  void hud(){
-    tft.fillRect(0,0,320,80, C_BG);
-    tft.drawRect(0,0,320,80, ILI9341_DARKGREY);
-    tft.setTextSize(2);
-    tft.setTextColor(ILI9341_CYAN);
-    tft.setCursor(10,10);
-    tft.print("RPM");
-  }
-  
-  void drawRPM(int rpm){
-    tft.fillRect(118,16,84,34, C_BG);
-    tft.setTextSize(3);
-    tft.setTextColor(ILI9341_GREEN);
-    char b[10];
-    snprintf(b,sizeof(b),"%d",rpm);
-    int off = 80 - (int)strlen(b)*18;
-    tft.setCursor(120+off,18);
-    tft.print(b);
-  }
-  
-  void drawBack(){
-    uint16_t c = ILI9341_RED;
-    int cx = 300, cy = 20, hh = 10, head = 14, body = 12;
-    for(int y=-hh; y<=hh; y++){
-      int w = head - abs(y)*head/hh;
-      int xs = cx - body - w;
-      tft.drawFastHLine(xs, cy+y, w, c);
-    }
-    tft.fillRect(cx-body, cy-hh/2, body, hh, c);
-  }
-  
-  void drawGearIcon(int cx, int cy, bool selected = false){
-    uint16_t color = selected ? ILI9341_GREEN : ILI9341_YELLOW;
-    int outerR = 18;
-    int innerR = 10;
-    int centerR = 5;
-    int teethCount = 6;
-    float rotationOffset = PI / 6.0;
-
-    float tipWidth = 0.15 * 1.3 * 1.3;
-    float baseWidth = 0.15 * 7.2;
-
-    for(int i = 0; i < teethCount; i++){
-      float angleCenter = i * 2.0 * PI / teethCount + rotationOffset;
-
-      float angle1_inner = angleCenter - PI / teethCount * baseWidth;
-      float angle2_inner = angleCenter + PI / teethCount * baseWidth;
-
-      float angle1_outer = angleCenter - PI / teethCount * tipWidth;
-      float angle2_outer = angleCenter + PI / teethCount * tipWidth;
-
-      int x1_inner = cx + innerR * cos(angle1_inner);
-      int y1_inner = cy + innerR * sin(angle1_inner);
-      int x2_inner = cx + innerR * cos(angle2_inner);
-      int y2_inner = cy + innerR * sin(angle2_inner);
-      int x1_outer = cx + outerR * cos(angle1_outer);
-      int y1_outer = cy + outerR * sin(angle1_outer);
-      int x2_outer = cx + outerR * cos(angle2_outer);
-      int y2_outer = cy + outerR * sin(angle2_outer);
-
-      tft.fillTriangle(x1_inner, y1_inner, x1_outer, y1_outer, x2_outer, y2_outer, color);
-      tft.fillTriangle(x1_inner, y1_inner, x2_outer, y2_outer, x2_inner, y2_inner, color);
-    }
-
-    tft.fillCircle(cx, cy, innerR, color);
-    tft.fillCircle(cx, cy, centerR, C_BG);
-    tft.drawCircle(cx, cy, centerR, color);
   }
   
   void mainMenu(int sel){
@@ -842,7 +761,7 @@ public:
   }
 };
 
-// ===== Variables compartidas Core0 ↔ Core1 =====
+// ===== Shared variables Core0 ↔ Core1 =====
 volatile AppState g_servoState    = AppState::SPLASH;
 volatile int      g_avanceSel     = 0;
 volatile int      g_roscaSel      = 0;
@@ -851,13 +770,13 @@ volatile bool     g_cwDirection   = true;
 volatile bool     g_servoActive   = false;
 volatile bool     g_imperialThread = false;
 
-// ===== Control servo Core1 — variables privadas =====
+// ===== Servo control Core1 — private variables =====
 static int32_t servoLastE_c1       = 0;
 static int32_t servoAccumulator_c1 = 0;
 
 void IRAM_ATTR updateServoCore1() {
-  // Lectura directa de variables volatile — segura para tipos <= 32 bits en ESP32
-  // No se usa portENTER_CRITICAL en el loop caliente para evitar contención con Core0
+  // Direct read of volatile variables — safe for types <= 32 bits on ESP32
+  // portENTER_CRITICAL is not used in the hot loop to avoid contention with Core0
   bool     active = g_servoActive;
   if (!active) {
     servoLastE_c1       = encCount;
@@ -894,12 +813,12 @@ void IRAM_ATTR updateServoCore1() {
   bool forward = cw ? encForward : !encForward;
 
   digitalWrite(DIR_PIN, forward ? HIGH : LOW);
-  ets_delay_us(2);  // Setup time DIR→PUL (Lichuan A6) — no deshabilita interrupciones
+  ets_delay_us(2);  // Setup time DIR→PUL (Lichuan A6) — does not disable interrupts
   for (int32_t i = 0; i < pulsesToSend; i++) {
     digitalWrite(PUL_PIN, HIGH);
-    ets_delay_us(3);  // Ancho de pulso mínimo Lichuan A6
+    ets_delay_us(3);  // Minimum pulse width Lichuan A6
     digitalWrite(PUL_PIN, LOW);
-    ets_delay_us(3);  // Separación entre pulsos
+    ets_delay_us(3);  // Gap between pulses
   }
 }
 
@@ -913,7 +832,7 @@ private:
   int menuSel, configMenuSel, ratioDigitSel, avanceSel, roscaSel, roscaPage, threadUnitSel;
   int menuOverlaySel;
   float ang, lastAng;
-  uint32_t tRPM, tANG, splashStart;
+  uint32_t tRPM, tANG, splashStart, lastTouchTime;
   int lastRPM;
   Config config;
 
@@ -925,7 +844,7 @@ public:
     menuSel(0), configMenuSel(0), ratioDigitSel(0),
     avanceSel(0), roscaSel(0), roscaPage(0), threadUnitSel(0), menuOverlaySel(0),
     ang(0.0f), lastAng(-1000.0f),
-    tRPM(0), tANG(0), splashStart(0), lastRPM(0) {}
+    tRPM(0), tANG(0), splashStart(0), lastTouchTime(0), lastRPM(0) {}
 
   void begin(){
     EEPROM.begin(512);
@@ -940,12 +859,12 @@ public:
     attachInterrupt(ENC_B, isrB, CHANGE);
     pinMode(PUL_PIN, OUTPUT);
     pinMode(DIR_PIN, OUTPUT);
-    pinMode(BRAKE_PIN, OUTPUT);  // GPIO reservado para freno (sin uso por ahora)
-    pinMode(ENC_Z, INPUT_PULLUP);  // GPIO reservado para señal Z del encoder (sin uso por ahora)
+    pinMode(BRAKE_PIN, OUTPUT);  // GPIO reserved for brake (unused for now)
+    pinMode(ENC_Z, INPUT_PULLUP);  // GPIO reserved for encoder Z signal (unused for now)
     digitalWrite(PUL_PIN, LOW);
-    digitalWrite(BRAKE_PIN, LOW);  // Estado por defecto
-    // touch.begin();         // Disabled: Wokwi does not support XPT2046
-    // touch.setRotation(1);
+    digitalWrite(BRAKE_PIN, LOW);  // Default state
+    touch.begin();
+    touch.setRotation(1);
   }
 
   void run(){
@@ -958,7 +877,7 @@ public:
         disp.mainMenu(menuSel);
       }
       handleButtons();
-      // handleTouch();  // Disabled: Wokwi does not support XPT2046
+      handleTouch();
       return;
     }
 
@@ -979,7 +898,7 @@ public:
       }
     }
     handleButtons();
-    // handleTouch();  // Disabled: Wokwi does not support XPT2046
+    handleTouch();
     updateScreen();
   }
 
@@ -1272,237 +1191,397 @@ private:
     }
   }
 
-  // handleTouch() — Disabled for Wokwi (XPT2046 not supported by simulator)
-  // Re-enable by uncommenting this method and the handleTouch() calls in run()
-  // when deploying to real hardware.
+  // ===== Touch hit-test helpers =====
+  bool hitRect(int tx, int ty, int rx, int ry, int rw, int rh){
+    return tx >= rx && tx <= rx + rw && ty >= ry && ty <= ry + rh;
+  }
+
+  // ===== handleTouch() — Redesigned UI touch zones =====
+  // Bitmap button positions (from DisplayManager Figma layout):
+  //   btn_menu:    (279, 16)  24×24   — all screens
+  //   btn_back:    (262, 182) 30×30   — sub-screens (solo) or (222,182) when paired with btn_ok
+  //   btn_ok:      (262, 182) 30×30   — select/config screens (always right of btn_back)
+  //   btn_reload:  (222, 182) 30×30   — divider only
+  //   btn_slider:  (262, 111) 21×13   — interface screen
   void handleTouch(){
-    // if(!touch.touched()) return;
-    // TS_Point p = touch.getPoint();
-    // int x = map(p.x, TS_MAXX, TS_MINX, 0, 319);
-    // int y = map(p.y, TS_MAXY, TS_MINY, 0, 239);
-    // x = constrain(x,0,319);
-    // y = constrain(y,0,239);
+    if(!touch.touched()) return;
+    uint32_t now = millis();
+    if(now - lastTouchTime < TOUCH_DEBOUNCE) return;
 
-    // // Splash: any touch skips to main
-    // if(state == AppState::SPLASH) {
-    //   state = AppState::MAIN_MENU;
-    //   disp.hud();
-    //   disp.mainMenu(menuSel);
-    //   delay(200);
-    //   return;
-    // }
+    TS_Point p = touch.getPoint();
+    int x = map(p.x, TS_MAXX, TS_MINX, 0, 319);
+    int y = map(p.y, TS_MAXY, TS_MINY, 0, 239);
+    x = constrain(x, 0, 319);
+    y = constrain(y, 0, 239);
+    lastTouchTime = now;
 
-    // // Menu overlay touch handling
-    // if(state == AppState::MENU_OVERLAY) {
-    //   // Back button (circle at ~155,192 r=15)
-    //   if(x>=140 && x<=170 && y>=177 && y<=207) {
-    //     state = prevState;
-    //     disp.hud();
-    //     disp.mainMenu(menuSel);
-    //     delay(200);
-    //     return;
-    //   }
-    //   // Options
-    //   for(int i = 0; i < 3; i++) {
-    //     int oy = 65 + i * 40;
-    //     if(x>=130 && x<=300 && y>=oy && y<=oy+28) {
-    //       menuOverlaySel = i;
-    //       disp.drawMenuOverlay(menuOverlaySel);
-    //       delay(200);
-    //       if(i == 0) {
-    //         state = AppState::CONFIG_MENU;
-    //         disp.configMenu(configMenuSel);
-    //       }
-    //       // INTERFACE and INFO: reserved for future implementation
-    //       return;
-    //     }
-    //   }
-    //   return;
-    // }
+    // --- SPLASH: any touch → main menu ---
+    if(state == AppState::SPLASH){
+      state = AppState::MAIN_MENU;
+      disp.mainMenu(menuSel);
+      return;
+    }
 
-    // // Button-Menu touch (top-right, all screens except splash/overlay)
-    // // Figma: Button-Menu at approx x=295-319, y=8-32
-    // if(x>=290 && x<=319 && y>=8 && y<=32) {
-    //   prevState = state;
-    //   menuOverlaySel = 0;
-    //   state = AppState::MENU_OVERLAY;
-    //   disp.drawMenuOverlay(menuOverlaySel);
-    //   delay(200);
-    //   return;
-    // }
+    // --- MENU OVERLAY ---
+    if(state == AppState::MENU_OVERLAY){
+      // Options: CONFIGURATION / INTERFACE / INFO — x=140, y=65/100/135, w=180, h=25
+      for(int i = 0; i < 3; i++){
+        if(hitRect(x, y, 140, 65 + i * 35, 180, 25)){
+          menuOverlaySel = i;
+          if(i == 0){
+            state = AppState::CONFIG_MENU;
+            disp.configMenu(configMenuSel);
+          } else if(i == 1){
+            state = AppState::INTERFACE_SCREEN;
+            disp.drawInterface(config.darkMode);
+          } else {
+            state = AppState::INFO_SCREEN;
+            disp.drawInfo();
+          }
+          return;
+        }
+      }
+      // btn_back (262, 182) 30×30 → return to previous state
+      if(hitRect(x, y, 258, 178, 38, 38)){
+        state = prevState;
+        disp.mainMenu(menuSel);
+        return;
+      }
+      return;
+    }
 
-    // // Back arrow touch (top-right area, sub-screens)
-    // if(state!=AppState::MAIN_MENU){
-    //   if(x>=280 && x<=319 && y<=40){
-    //     if(state==AppState::CONFIG_DIRECTION || state==AppState::CONFIG_RATIO){
-    //       state = AppState::CONFIG_MENU;
-    //       disp.configMenu(configMenuSel);
-    //     } else {
-    //       state = AppState::MAIN_MENU;
-    //       disp.hud();
-    //       disp.mainMenu(menuSel);
-    //     }
-    //     delay(200);
-    //     return;
-    //   }
-    // }
+    // --- btn_menu touch (top-right, most screens) → open menu overlay ---
+    // Screens that should NOT open overlay: SPLASH, MENU_OVERLAY (handled above)
+    if(state != AppState::SPLASH && hitRect(x, y, 275, 12, 38, 38)){
+      prevState = state;
+      menuOverlaySel = 0;
+      state = AppState::MENU_OVERLAY;
+      disp.drawMenuOverlay(menuOverlaySel);
+      return;
+    }
 
-    // if(state==AppState::MAIN_MENU){
-    //   if(y>=80 && y<133){
-    //     state = AppState::AVANCE_SELECT;
-    //     disp.drawAvanceSelect(avanceSel);
-    //     delay(200);
-    //     return;
-    //   }
-    //   if(y>=133 && y<186){
-    //     state = AppState::ROSCA_SELECT_P1;
-    //     disp.drawRoscaPage1(roscaSel);
-    //     delay(200);
-    //     return;
-    //   }
-    //   if(y>=186){
-    //     state = AppState::DIVISOR_MODE;
-    //     disp.hud();
-    //     disp.divisorBase();
-    //     delay(200);
-    //     return;
-    //   }
-    // }
+    // --- MAIN MENU ---
+    if(state == AppState::MAIN_MENU){
+      // 3 options right column: x=210, y=65/100/135, w=110, h=25
+      const int optY[] = {65, 100, 135};
+      for(int i = 0; i < 3; i++){
+        if(hitRect(x, y, 210, optY[i], 110, 25)){
+          menuSel = i;
+          if(i == 0){
+            state = AppState::AVANCE_SELECT;
+            disp.drawAvanceSelect(avanceSel);
+          } else if(i == 1){
+            roscaSel = 0;
+            threadUnitSel = 0;
+            state = AppState::THREAD_UNIT_SWITCH;
+            disp.drawThreadUnitSwitch(threadUnitSel);
+          } else {
+            state = AppState::DIVISOR_MODE;
+            disp.divisorBase();
+          }
+          return;
+        }
+      }
+      return;
+    }
 
-    // if(state==AppState::CONFIG_MENU){
-    //   if(y>=80 && y<160){
-    //     state = AppState::CONFIG_DIRECTION;
-    //     disp.configDirection(config.cwDirection);
-    //     delay(200);
-    //   } else if(y>=160){
-    //     state = AppState::CONFIG_RATIO;
-    //     ratioDigitSel = 0;
-    //     disp.configRatio(config.leadScrewPitch, ratioDigitSel);
-    //     delay(200);
-    //   }
-    //   return;
-    // }
+    // --- THREAD UNIT SWITCH ---
+    if(state == AppState::THREAD_UNIT_SWITCH){
+      // METRIC / UTS options: x=28, y=72/117, w=264, h=30
+      if(hitRect(x, y, 28, 72, 264, 30)){
+        threadUnitSel = 0;
+        disp.drawThreadUnitSwitch(threadUnitSel);
+        return;
+      }
+      if(hitRect(x, y, 28, 117, 264, 30)){
+        threadUnitSel = 1;
+        disp.drawThreadUnitSwitch(threadUnitSel);
+        return;
+      }
+      // btn_ok (262, 182) → confirm and go to ROSCA_SELECT
+      if(hitRect(x, y, 258, 178, 38, 38)){
+        roscaSel = 0;
+        roscaPage = 0;
+        state = AppState::ROSCA_SELECT;
+        disp.drawRoscaPage(roscaPage, roscaSel, threadUnitSel == 1);
+        return;
+      }
+      // btn_back (222, 182) → return to MAIN_MENU
+      if(hitRect(x, y, 218, 178, 38, 38)){
+        state = AppState::MAIN_MENU;
+        disp.mainMenu(menuSel);
+        return;
+      }
+      return;
+    }
 
-    // if(state==AppState::CONFIG_DIRECTION){
-    //   if(y>=90 && y<=140){
-    //     if(x>=40 && x<=150){
-    //       config.cwDirection = true;
-    //       disp.configDirection(config.cwDirection);
-    //       delay(200);
-    //     } else if(x>=170 && x<=280){
-    //       config.cwDirection = false;
-    //       disp.configDirection(config.cwDirection);
-    //       delay(200);
-    //     }
-    //   }
-    //   if(x>=CONF_X && x<=CONF_X+CONF_W && y>=170 && y<=194){
-    //     config.save();
-    //     state = AppState::CONFIG_MENU;
-    //     disp.configMenu(configMenuSel);
-    //     delay(200);
-    //   }
-    //   return;
-    // }
+    // --- FEED SELECT ---
+    if(state == AppState::AVANCE_SELECT){
+      // Tab grid 2×3: x=40/170, y=65/100/135, w=110, h=20
+      const int tabX[] = {40, 170};
+      const int tabY[] = {65, 100, 135};
+      for(int i = 0; i < NUM_AV; i++){
+        int col = i % 2, row = i / 2;
+        if(hitRect(x, y, tabX[col], tabY[row], 110, 20)){
+          avanceSel = i;
+          disp.drawAvanceSelect(avanceSel);
+          return;
+        }
+      }
+      // btn_ok (262, 182) → confirm selection
+      if(hitRect(x, y, 258, 178, 38, 38)){
+        state = AppState::AVANCE_MODE;
+        g_servoState  = AppState::AVANCE_MODE;
+        g_avanceSel   = avanceSel;
+        g_roscaSel    = roscaSel;
+        g_leadPitch   = config.leadScrewPitch;
+        g_cwDirection = config.cwDirection;
+        g_servoActive = true;
+        disp.modeScreen("< FEED MODE", avances[avanceSel], "mm");
+        return;
+      }
+      // btn_back (222, 182) → return to MAIN_MENU
+      if(hitRect(x, y, 218, 178, 38, 38)){
+        state = AppState::MAIN_MENU;
+        disp.mainMenu(menuSel);
+        return;
+      }
+      return;
+    }
 
-    // if(state==AppState::CONFIG_RATIO){
-    //   if(x>=CONF_X && x<=CONF_X+CONF_W && y>=195 && y<=219){
-    //     config.save();
-    //     state = AppState::CONFIG_MENU;
-    //     disp.configMenu(configMenuSel);
-    //     delay(200);
-    //   }
-    //   return;
-    // }
+    // --- ROSCA SELECT (paginated) ---
+    if(state == AppState::ROSCA_SELECT){
+      bool imp    = (threadUnitSel == 1);
+      int  tot    = imp ? NUM_ROS_IMP : NUM_ROS;
+      int  pages  = (tot + ROSCA_PAGE_SIZE - 1) / ROSCA_PAGE_SIZE;
+      int  start  = roscaPage * ROSCA_PAGE_SIZE;
+      int  count  = min(ROSCA_PAGE_SIZE, tot - start);
 
-    // if(state==AppState::AVANCE_SELECT){
-    //   for(int i=0;i<NUM_AV;i++){
-    //     int row = i/2, col = i%2;
-    //     int bx = (col==0)? BTN_LEFT_X : BTN_RIGHT_X;
-    //     int by = GRID_START_Y + row*(BTN_H + BTN_GAP_Y);
-    //     if(x>=bx && x<=bx+BTN_W && y>=by && y<=by+BTN_H){
-    //       avanceSel = i;
-    //       disp.drawAvanceSelect(avanceSel);
-    //       delay(200);
-    //       return;
-    //     }
-    //   }
-    //   if(x>=CONF_X && x<=CONF_X+CONF_W && y>=CONF_Y && y<=CONF_Y+CONF_H){
-    //     char buf[16];
-    //     snprintf(buf,sizeof(buf),"%.2f mm", avances[avanceSel]);
-    //     state = AppState::AVANCE_MODE;
-    //     disp.hud();
-    //     disp.modeScreen("FEED MODE", buf);
-    //     delay(200);
-    //   }
-    //   return;
-    // }
+      // Tab grid 2×3: x=40/170, y=65/100/135, w=110, h=20
+      const int tabX[] = {40, 170};
+      const int tabY[] = {65, 100, 135};
+      for(int i = 0; i < count; i++){
+        int col = i % 2, row = i / 2;
+        if(hitRect(x, y, tabX[col], tabY[row], 110, 20)){
+          roscaSel = start + i;
+          disp.drawRoscaPage(roscaPage, roscaSel, imp);
+          return;
+        }
+      }
+      // Left pagination caret (17, 182) 24×24 — previous page
+      if(roscaPage > 0 && hitRect(x, y, 13, 178, 32, 32)){
+        roscaPage--;
+        roscaSel = roscaPage * ROSCA_PAGE_SIZE;
+        disp.drawRoscaPage(roscaPage, roscaSel, imp);
+        return;
+      }
+      // Right pagination caret — next page (approximate position after text)
+      if(roscaPage < pages - 1 && hitRect(x, y, 90, 178, 32, 32)){
+        roscaPage++;
+        roscaSel = roscaPage * ROSCA_PAGE_SIZE;
+        disp.drawRoscaPage(roscaPage, roscaSel, imp);
+        return;
+      }
+      // btn_ok (262, 182) → confirm selection
+      if(hitRect(x, y, 258, 178, 38, 38)){
+        float dispVal = imp ? tpi_vals[roscaSel] : roscas[roscaSel];
+        state            = AppState::ROSCADO_MODE;
+        g_servoState     = AppState::ROSCADO_MODE;
+        g_avanceSel      = avanceSel;
+        g_roscaSel       = roscaSel;
+        g_leadPitch      = config.leadScrewPitch;
+        g_cwDirection    = config.cwDirection;
+        g_imperialThread = imp;
+        g_servoActive    = true;
+        disp.modeScreen("< THREAD MODE", dispVal, imp ? "TPI" : "Pitch");
+        return;
+      }
+      // btn_back (222, 182) → previous page or THREAD_UNIT_SWITCH
+      if(hitRect(x, y, 218, 178, 38, 38)){
+        if(roscaPage > 0){
+          roscaPage--;
+          roscaSel = roscaPage * ROSCA_PAGE_SIZE;
+          disp.drawRoscaPage(roscaPage, roscaSel, imp);
+        } else {
+          state = AppState::THREAD_UNIT_SWITCH;
+          disp.drawThreadUnitSwitch(threadUnitSel);
+        }
+        return;
+      }
+      return;
+    }
 
-    // if(state==AppState::ROSCA_SELECT_P1){
-    //   for(int i=0;i<ROSCA_P1;i++){
-    //     int row = i/2, col = i%2;
-    //     int bx = (col==0)? BTN_LEFT_X : BTN_RIGHT_X;
-    //     int by = GRID_START_Y + row*(BTN_H + BTN_GAP_Y);
-    //     if(x>=bx && x<=bx+BTN_W && y>=by && y<=by+BTN_H){
-    //       roscaSel = i;
-    //       disp.drawRoscaPage1(roscaSel);
-    //       delay(200);
-    //       return;
-    //     }
-    //   }
-    //   if(x>=260 && x<=310 && y>=ARROW_Y && y<=ARROW_Y+ARROW_H){
-    //     state = AppState::ROSCA_SELECT_P2;
-    //     disp.drawRoscaPage2(roscaSel);
-    //     delay(200);
-    //     return;
-    //   }
-    //   if(x>=CONF_X && x<=CONF_X+CONF_W && y>=CONF_Y && y<=CONF_Y+CONF_H){
-    //     char buf[16];
-    //     snprintf(buf,sizeof(buf),"%.2f pitch", roscas[roscaSel]);
-    //     state = AppState::ROSCADO_MODE;
-    //     disp.hud();
-    //     disp.modeScreen("THREAD MODE", buf);
-    //     delay(200);
-    //   }
-    //   return;
-    // }
+    // --- AVANCE MODE / ROSCADO MODE ---
+    if(state == AppState::AVANCE_MODE || state == AppState::ROSCADO_MODE){
+      // btn_back (262, 182) → return to MAIN_MENU, stop servo
+      if(hitRect(x, y, 258, 178, 38, 38)){
+        state = AppState::MAIN_MENU;
+        g_servoActive = false;
+        disp.mainMenu(menuSel);
+        return;
+      }
+      return;
+    }
 
-    // if(state==AppState::ROSCA_SELECT_P2){
-    //   int base = ROSCA_P1, count = NUM_ROS - ROSCA_P1;
-    //   for(int i=0;i<count;i++){
-    //     int idx = base + i, row = i/2, col = i%2;
-    //     int bx = (col==0)? BTN_LEFT_X : BTN_RIGHT_X;
-    //     int by = GRID_START_Y + row*(BTN_H + BTN_GAP_Y);
-    //     if(x>=bx && x<=bx+BTN_W && y>=by && y<=by+BTN_H){
-    //       roscaSel = idx;
-    //       disp.drawRoscaPage2(roscaSel);
-    //       delay(200);
-    //       return;
-    //     }
-    //   }
-    //   if(x>=10 && x<=60 && y>=ARROW_Y && y<=ARROW_Y+ARROW_H){
-    //     state = AppState::ROSCA_SELECT_P1;
-    //     disp.drawRoscaPage1(roscaSel);
-    //     delay(200);
-    //     return;
-    //   }
-    //   if(x>=CONF_X && x<=CONF_X+CONF_W && y>=CONF_Y && y<=CONF_Y+CONF_H){
-    //     char buf[16];
-    //     snprintf(buf,sizeof(buf),"%.2f pitch", roscas[roscaSel]);
-    //     state = AppState::ROSCADO_MODE;
-    //     disp.hud();
-    //     disp.modeScreen("THREAD MODE", buf);
-    //     delay(200);
-    //   }
-    //   return;
-    // }
+    // --- DIVISOR MODE ---
+    if(state == AppState::DIVISOR_MODE){
+      // btn_reload (222, 182) 30×30 → reset angle
+      if(hitRect(x, y, 218, 178, 38, 38)){
+        encCount = 0;
+        lastAng = -1000.0f;
+        return;
+      }
+      // btn_back (262, 182) → return to MAIN_MENU
+      if(hitRect(x, y, 258, 178, 38, 38)){
+        state = AppState::MAIN_MENU;
+        disp.mainMenu(menuSel);
+        return;
+      }
+      return;
+    }
 
-    // if(state==AppState::DIVISOR_MODE){
-    //   if(x>=60 && x<=260 && y>=140 && y<=190){
-    //     encCount = 0;
-    //     lastAng = -1000.0f;
-    //     delay(200);
-    //   }
-    // }
+    // --- CONFIG MENU ---
+    if(state == AppState::CONFIG_MENU){
+      // Options: DIRECTION / LEAD SCREW PITCH — x=80, y=65/100, w=240, h=25
+      if(hitRect(x, y, 80, 65, 240, 25)){
+        configMenuSel = 0;
+        state = AppState::CONFIG_DIRECTION;
+        disp.configDirection(config.cwDirection);
+        return;
+      }
+      if(hitRect(x, y, 80, 100, 240, 25)){
+        configMenuSel = 1;
+        state = AppState::CONFIG_RATIO;
+        ratioDigitSel = 0;
+        disp.configRatio(config.leadScrewPitch, ratioDigitSel);
+        return;
+      }
+      // btn_back (262, 182) → return to MENU_OVERLAY
+      if(hitRect(x, y, 258, 178, 38, 38)){
+        state = AppState::MENU_OVERLAY;
+        disp.drawMenuOverlay(menuOverlaySel);
+        return;
+      }
+      return;
+    }
+
+    // --- CONFIG DIRECTION ---
+    if(state == AppState::CONFIG_DIRECTION){
+      // CW button: x=68, y=85, w=83, h=60
+      if(hitRect(x, y, 68, 85, 83, 60)){
+        config.cwDirection = true;
+        disp.configDirection(config.cwDirection);
+        return;
+      }
+      // CCW button: x=168, y=85, w=83, h=60
+      if(hitRect(x, y, 168, 85, 83, 60)){
+        config.cwDirection = false;
+        disp.configDirection(config.cwDirection);
+        return;
+      }
+      // btn_ok (262, 182) → save and return to CONFIG_MENU
+      if(hitRect(x, y, 258, 178, 38, 38)){
+        config.save();
+        g_cwDirection = config.cwDirection;
+        state = AppState::CONFIG_MENU;
+        disp.configMenu(configMenuSel);
+        return;
+      }
+      // btn_back (222, 182) → cancel and return to CONFIG_MENU
+      if(hitRect(x, y, 218, 178, 38, 38)){
+        state = AppState::CONFIG_MENU;
+        disp.configMenu(configMenuSel);
+        return;
+      }
+      return;
+    }
+
+    // --- CONFIG RATIO ---
+    if(state == AppState::CONFIG_RATIO){
+      // Digit box tens: x=75, y=88, w=80, h=65 → select digit 0
+      if(hitRect(x, y, 75, 88, 80, 65)){
+        ratioDigitSel = 0;
+        disp.configRatio(config.leadScrewPitch, ratioDigitSel);
+        return;
+      }
+      // Digit box units: x=165, y=88, w=80, h=65 → select digit 1
+      if(hitRect(x, y, 165, 88, 80, 65)){
+        ratioDigitSel = 1;
+        disp.configRatio(config.leadScrewPitch, ratioDigitSel);
+        return;
+      }
+      // Stepper up arrow (above active digit, y~50, 30×30)
+      {
+        int stepX = (ratioDigitSel == 0) ? 75 + (80 - BTN_STEPPER_W) / 2
+                                         : 165 + (80 - BTN_STEPPER_W) / 2;
+        if(hitRect(x, y, stepX - 4, 46, 38, 38)){
+          uint8_t d = getDigit(config.leadScrewPitch, ratioDigitSel);
+          d++; if(d > 9) d = 0;
+          setDigit(config.leadScrewPitch, ratioDigitSel, d);
+          disp.configRatio(config.leadScrewPitch, ratioDigitSel);
+          return;
+        }
+        // Stepper down arrow (below active digit, y~161, 30×30)
+        if(hitRect(x, y, stepX - 4, 157, 38, 38)){
+          uint8_t d = getDigit(config.leadScrewPitch, ratioDigitSel);
+          if(d == 0) d = 9; else d--;
+          setDigit(config.leadScrewPitch, ratioDigitSel, d);
+          disp.configRatio(config.leadScrewPitch, ratioDigitSel);
+          return;
+        }
+      }
+      // btn_ok (262, 182) → advance digit or save
+      if(hitRect(x, y, 258, 178, 38, 38)){
+        ratioDigitSel++;
+        if(ratioDigitSel > 1){
+          config.save();
+          g_leadPitch = config.leadScrewPitch;
+          state = AppState::CONFIG_MENU;
+          disp.configMenu(configMenuSel);
+        } else {
+          disp.configRatio(config.leadScrewPitch, ratioDigitSel);
+        }
+        return;
+      }
+      // btn_back (222, 182) → cancel and return to CONFIG_MENU
+      if(hitRect(x, y, 218, 178, 38, 38)){
+        state = AppState::CONFIG_MENU;
+        disp.configMenu(configMenuSel);
+        return;
+      }
+      return;
+    }
+
+    // --- INTERFACE SCREEN ---
+    if(state == AppState::INTERFACE_SCREEN){
+      // btn_slider (262, 111) 21×13 or label area — toggle dark mode
+      if(hitRect(x, y, 258, 105, 30, 24)){
+        config.darkMode = !config.darkMode;
+        tft.invertDisplay(!config.darkMode);
+        disp.drawInterface(config.darkMode);
+        return;
+      }
+      // btn_back (262, 182) → save and return to MENU_OVERLAY
+      if(hitRect(x, y, 258, 178, 38, 38)){
+        config.save();
+        state = AppState::MENU_OVERLAY;
+        disp.drawMenuOverlay(menuOverlaySel);
+        tft.invertDisplay(!config.darkMode);
+        return;
+      }
+      return;
+    }
+
+    // --- INFO SCREEN ---
+    if(state == AppState::INFO_SCREEN){
+      // btn_back (262, 182) → return to MENU_OVERLAY
+      if(hitRect(x, y, 258, 178, 38, 38)){
+        state = AppState::MENU_OVERLAY;
+        disp.drawMenuOverlay(menuOverlaySel);
+        return;
+      }
+      return;
+    }
   }
 
   void updateScreen(){
@@ -1521,26 +1600,26 @@ void loop(){
   app.run();
 }
 
-// ===== Core1: tarea FreeRTOS dedicada al servo (ESP32) =====
+// ===== Core1: dedicated FreeRTOS servo task (ESP32) =====
 void servoTask(void* pvParameters) {
-  servoLastE_c1 = encCount;  // Sincronizar posición inicial
+  servoLastE_c1 = encCount;  // Sync initial position
   for (;;) {
     updateServoCore1();
-    vTaskDelay(1);  // Ceder al scheduler — evita WDT y permite que Core1 atienda otras tareas
+    vTaskDelay(1);  // Yield to the scheduler — avoids WDT and lets Core1 service other tasks
   }
 }
 
 void setup(){
   Serial.begin(115200);
   app.begin();
-  // Lanzar tarea servo en Core1 con prioridad alta (24) y stack 2KB
+  // Launch the servo task on Core1 with high priority (24) and a 2KB stack
   xTaskCreatePinnedToCore(
-    servoTask,    // función de la tarea
-    "ServoTask",  // nombre (debug)
-    4096,         // stack en bytes (float + arrays PROGMEM requieren stack suficiente)
-    nullptr,      // parámetro
-    24,           // prioridad (0=mín, 25=máx en ESP32)
-    nullptr,      // handle (no necesario)
+    servoTask,    // task function
+    "ServoTask",  // name (debug)
+    4096,         // stack in bytes (float + PROGMEM arrays need enough stack)
+    nullptr,      // parameter
+    24,           // priority (0=min, 25=max on ESP32)
+    nullptr,      // handle (not needed)
     1             // Core1
   );
 }
