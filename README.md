@@ -109,10 +109,18 @@ esp32-lathe/
 │   ├── Orbitron_Medium18pt7b.h
 │   ├── Orbitron_Medium24pt7b.h
 │   └── Montserrat_Light6pt7b.h
-└── Resources/            # User manuals and component list (see Documentation)
+└── Resources/            # Manuals, BOM, and 3D models (see Documentation)
     ├── User_Manual.pdf        # User manual (English)
     ├── Manual_Usuario.pdf     # User manual (Spanish)
-    └── ELS_Componentes.pdf    # Bill of materials / component list
+    ├── ELS_Componentes.pdf    # Bill of materials / component list
+    └── Components/            # 3D models of the mechanical parts (STEP / STL)
+        ├── Base.STEP
+        ├── Axis.STEP
+        ├── Support.STEP
+        ├── Encoder support.STEP
+        ├── Main Pulley 50 Theet HTD5.STEP
+        ├── Lathe Pulley 50 theet.STEP
+        └── Frontal Caja Elecronica.STL
 ```
 
 ---
@@ -139,7 +147,21 @@ Full user manuals and the component list are available in the [`esp32-lathe/Reso
 |---|---|---|
 | [User_Manual.pdf](esp32-lathe/Resources/User_Manual.pdf) | English | Complete user manual — operation, modes, and configuration |
 | [Manual_Usuario.pdf](esp32-lathe/Resources/Manual_Usuario.pdf) | Español | Manual de usuario completo — funcionamiento, modos y configuración |
-| [ELS_Componentes.pdf](esp32-lathe/Resources/ELS_Componentes.pdf) | Español | Bill of materials / lista de componentes |
+| [ELS_Componentes.pdf](esp32-lathe/Resources/ELS_Componentes.pdf) | Español | Bill of materials with links to the referenced parts / lista de componentes con enlaces a los referidos |
+
+### 3D Models (mechanical parts)
+
+3D models of the custom mechanical parts are in [`esp32-lathe/Resources/Components/`](esp32-lathe/Resources/Components/). STEP files are neutral CAD format (editable in any CAD tool); the STL is print-ready and previews directly on GitHub.
+
+| Part | Format |
+|---|---|
+| [Base](esp32-lathe/Resources/Components/Base.STEP) | STEP |
+| [Axis](esp32-lathe/Resources/Components/Axis.STEP) | STEP |
+| [Support](esp32-lathe/Resources/Components/Support.STEP) | STEP |
+| [Encoder support](esp32-lathe/Resources/Components/Encoder%20support.STEP) | STEP |
+| [Main Pulley 50T HTD5](esp32-lathe/Resources/Components/Main%20Pulley%2050%20Theet%20HTD5.STEP) | STEP |
+| [Lathe Pulley 50T](esp32-lathe/Resources/Components/Lathe%20Pulley%2050%20theet.STEP) | STEP |
+| [Electronics box front](esp32-lathe/Resources/Components/Frontal%20Caja%20Elecronica.STL) | STL (3D-printable) |
 
 ---
 
