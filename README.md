@@ -1,6 +1,10 @@
 # TheMakerVoid ELS — ESP32-S3 Electronic Lead Screw
 
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support%20this%20project-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/themakervoid)
+
 An open-source **Electronic Lead Screw (ELS)** controller for manual lathes, built around the ESP32-S3 and a 320×240 ILI9341 TFT touchscreen. Synchronizes a servo/stepper motor with spindle rotation to automate feed and thread cutting operations.
+
+> ☕ **This project is free and open source.** If it's useful to you, consider [buying me a coffee](https://buymeacoffee.com/themakervoid) — it helps keep the open-source hardware coming. Thank you!
 
 ---
 
@@ -176,3 +180,5 @@ This project is open-source. See [LICENSE](LICENSE) for details.
 **TheMakerVoid** — [www.themakervoid.com](https://www.themakervoid.com)
 
 Contributions, issues, and pull requests are welcome.
+
+If this project helps you, support it with a coffee ☕ → [buymeacoffee.com/themakervoid](https://buymeacoffee.com/themakervoid)
