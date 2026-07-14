@@ -117,6 +117,7 @@ esp32-lathe/
     ├── User_Manual.pdf        # User manual (English)
     ├── Manual_Usuario.pdf     # User manual (Spanish)
     ├── ELS_Componentes.pdf    # Bill of materials / component list
+    ├── Schematic.pdf          # Circuit schematic
     └── Components/            # 3D models of the mechanical parts (STEP / STL)
         ├── Base.STEP
         ├── Axis.STEP
@@ -152,6 +153,7 @@ Full user manuals and the component list are available in the [`esp32-lathe/Reso
 | [User_Manual.pdf](esp32-lathe/Resources/User_Manual.pdf) | English | Complete user manual — operation, modes, and configuration |
 | [Manual_Usuario.pdf](esp32-lathe/Resources/Manual_Usuario.pdf) | Español | Manual de usuario completo — funcionamiento, modos y configuración |
 | [ELS_Componentes.pdf](esp32-lathe/Resources/ELS_Componentes.pdf) | Español | Bill of materials with links to the referenced parts / lista de componentes con enlaces a los referidos |
+| [Schematic.pdf](esp32-lathe/Resources/Schematic.pdf) | — | Circuit schematic / esquema del circuito |
 
 ### 3D Models (mechanical parts)
 
