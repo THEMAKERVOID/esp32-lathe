@@ -29,9 +29,19 @@ An open-source **Electronic Lead Screw (ELS)** controller for manual lathes, bui
 | Microcontroller | ESP32-S3 DevKit C-1 |
 | Display | ILI9341 TFT 320×240, landscape |
 | Encoder | Quadrature rotary encoder, 1440 pulses/rev |
-| Servo/Stepper driver | Lichuan A6 (PUL/DIR interface) |
+| Servo/Stepper driver | [Lichuan AC servo driver (PUL/DIR interface)](https://s.click.aliexpress.com/e/_c377K5Un) |
 | Touchscreen | XPT2046 resistive controller (on the ILI9341 module) |
 | Input | XPT2046 touchscreen + 4 physical buttons: UP, DOWN, SELECT, BACK |
+
+### Where to Buy
+
+| Component | Link |
+| --- | --- |
+| AC Servo motor + driver | [AliExpress](https://s.click.aliexpress.com/e/_c377K5Un) |
+
+**Recommended model: 1,000 W** — 4 Nm torque, 2500 RPM, 80 mm mounting flange (same specs as the unit used in this project).
+
+*Affiliate link — as an AliExpress affiliate I may earn a commission at no extra cost to you.*
 
 ### Pin Map
 
